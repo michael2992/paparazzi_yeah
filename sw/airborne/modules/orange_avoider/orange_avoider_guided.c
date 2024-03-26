@@ -32,6 +32,7 @@
 #include "modules/core/abi.h"
 #include <stdio.h>
 #include <time.h>
+#include <math.h>
 
 #define ORANGE_AVOIDER_VERBOSE TRUE
 
@@ -55,7 +56,7 @@ enum navigation_state_t {
 // define settings
 float oag_color_count_frac = 0.18f;       // obstacle detection threshold as a fraction of total of image
 float oag_floor_count_frac = 0.05f;       // floor detection threshold as a fraction of total of image
-float oag_max_speed = 0.5f;               // max flight speed [m/s]
+float oag_max_speed = 0.7f;               // max flight speed [m/s]
 float oag_heading_rate = RadOfDeg(30.f);  // heading change setpoint for avoidance [rad/s]
 
 // define and initialise global variables
@@ -81,6 +82,16 @@ int32_t green_count2 = 0;
 int32_t green_count3 = 0;
 int32_t green_count4 = 0;
 int32_t green_count5 = 0;
+
+
+int32_t temp_heading;
+
+u_int32_t new_color_count;
+
+int32_t safe_heading;
+
+int32_t temp_arrray[5] = {0};
+
 //////////////////
 
 
@@ -131,6 +142,36 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
 
 }
 
+int findMinIndex(int arr[], int size);
+
+
+int findMinIndex(int arr[], int size) {
+    if (size <= 0) return -1; // Return an invalid index if the array is empty
+
+    int minIndex = 0; // Start with the first element as the minimum
+    for (int i = 1; i < size; i++) {
+        if (arr[i] < arr[minIndex]) {
+            minIndex = i; // Update the index of the new minimum
+        }
+    }
+    return minIndex;
+}
+
+float adjustAngle(float temp_heading) {
+    float adjusted_heading = temp_heading + RadOfDeg(150);
+
+    // Wrap the heading to be within -PI and PI
+    adjusted_heading = fmod(adjusted_heading + M_PI, 2 * M_PI);
+    if (adjusted_heading < 0)
+        adjusted_heading += 2 * M_PI;
+    adjusted_heading -= M_PI;
+
+    return adjusted_heading;
+}
+  
+
+
+
 /*
  * Initialisation function
  */
@@ -143,6 +184,13 @@ void orange_avoider_guided_init(void)
   // bind our colorfilter callbacks to receive the color filter outputs
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
   AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
+  
+  temp_arrray[0] = orange_count1;
+  temp_arrray[1] = orange_count2;
+  temp_arrray[2] = orange_count3;
+  temp_arrray[3] = orange_count4;
+  temp_arrray[4] = orange_count5;
+
 }
 
 /*
@@ -159,15 +207,18 @@ void orange_avoider_guided_periodic(void)
   }
 
   // compute current color thresholds
-  int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h * 0.5;
   int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h;
   float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
 
-  // VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", color_count, color_count_threshold, navigation_state);
-  // VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
-  // VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
+  VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", new_color_count, color_count_threshold, navigation_state);
+  VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
+  // VERBOSE_PRINsT("Floor centroid: %f\n", floor_centroid_frac);
 
   // update our safe confidence using color threshold
+
+  u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
+
   if(color_count < color_count_threshold){
     obstacle_free_confidence++;
   } else {
@@ -177,17 +228,21 @@ void orange_avoider_guided_periodic(void)
   // bound obstacle_free_confidence
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
 
+
+
   float speed_sp = fminf(oag_max_speed, 0.2f * obstacle_free_confidence);
 
   
-  VERBOSE_PRINT("orange: %i, %i, %i, %i, %i", orange_count1, orange_count2, orange_count3, orange_count4, orange_count5);
-  VERBOSE_PRINT("green: %i, %i, %i, %i, %i", green_count1, green_count2, green_count3, green_count4, green_count5);
+  // VERBOSE_PRINT("orange: %i, %i, %i, %i, %i", orange_count1, orange_count2, orange_count3, orange_count4, orange_count5);
+  // VERBOSE_PRINT("green: %i, %i, %i, %i, %i", green_count1, green_count2, green_count3, green_count4, green_count5);
 
-
+  
 
   switch (navigation_state){
     case SAFE:
       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
+        temp_heading = stateGetNedToBodyEulers_f()->psi;
+
         navigation_state = OUT_OF_BOUNDS;
       } else if (obstacle_free_confidence == 0){
         navigation_state = OBSTACLE_FOUND;
@@ -207,36 +262,55 @@ void orange_avoider_guided_periodic(void)
 
       break;
     case SEARCH_FOR_SAFE_HEADING:
-      guidance_h_set_heading_rate(avoidance_heading_direction * oag_heading_rate);
+      //guidance_h_set_heading_rate(avoidance_heading_direction * oag_heading_rate);
 
+      safe_heading = (findMinIndex(temp_arrray, 5) - 2)* RadOfDeg(30);
+
+      VERBOSE_PRINT("safe_heading: %i", safe_heading);
+
+
+
+      guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading);
+
+      navigation_state = SAFE;
       // make sure we have a couple of good readings before declaring the way safe
-      if (obstacle_free_confidence >= 2){
-        guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi);
-        navigation_state = SAFE;
-      }
+      // if (obstacle_free_confidence >= 2){
+      //   guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi);
+      //   navigation_state = SAFE;
+      // }
       break;
     case OUT_OF_BOUNDS:
       // stop
       guidance_h_set_body_vel(0, 0);
 
       // start turn back into arena
-      guidance_h_set_heading_rate(avoidance_heading_direction * RadOfDeg(15));
+      // guidance_h_set_heading_rate(avoidance_heading_direction * RadOfDeg(15));
+      guidance_h_set_heading_rate(RadOfDeg(30));
 
-      navigation_state = REENTER_ARENA;
+      VERBOSE_PRINT("temp_heading %f, current_heading %f", adjustAngle(temp_heading + RadOfDeg(150)), stateGetNedToBodyEulers_f()->psi);
+
+      
+
+
+
+      //guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + RadOfDeg(180));
+
+      
 
       break;
     case REENTER_ARENA:
       // force floor center to opposite side of turn to head back into arena
-      if (floor_count >= floor_count_threshold && avoidance_heading_direction * floor_centroid_frac >= 0.f){
-        // return to heading mode
-        guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi);
+      // if (floor_count >= floor_count_threshold && avoidance_heading_direction * floor_centroid_frac >= 0.f){
+      //   // return to heading mode
+      //   guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi);
 
-        // reset safe counter
-        obstacle_free_confidence = 0;
+      //   // reset safe counter
+      //   obstacle_free_confidence = 0;
 
-        // ensure direction is safe before continuing
-        navigation_state = SAFE;
-      }
+      //   // ensure direction is safe before continuing
+      //   navigation_state = SAFE;
+      // }
+      navigation_state = SAFE;
       break;
     default:
       break;
