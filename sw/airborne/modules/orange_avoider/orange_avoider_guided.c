@@ -54,9 +54,9 @@ enum navigation_state_t {
 };
 
 // define settings
-float oag_color_count_frac = 0.18f;       // obstacle detection threshold as a fraction of total of image
-float oag_floor_count_frac = 0.05f;       // floor detection threshold as a fraction of total of image
-float oag_max_speed = 0.7f;               // max flight speed [m/s]
+float oag_color_count_frac = 0.18f  * 0.25;       // obstacle detection threshold as a fraction of total of image
+float oag_floor_count_frac = 0.05f * 2;       // floor detection threshold as a fraction of total of image
+float oag_max_speed = 1.f;               // max flight speed [m/s]
 float oag_heading_rate = RadOfDeg(30.f);  // heading change setpoint for avoidance [rad/s]
 
 // define and initialise global variables
@@ -83,6 +83,9 @@ int32_t green_count3 = 0;
 int32_t green_count4 = 0;
 int32_t green_count5 = 0;
 
+int32_t pixels_per_strip = (240*520)/5; 
+int32_t alpha = 1.2f;
+
 
 int32_t temp_heading;
 
@@ -91,6 +94,7 @@ u_int32_t new_color_count;
 int32_t safe_heading;
 
 int32_t temp_arrray[5] = {0};
+
 
 //////////////////
 
@@ -133,11 +137,11 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
   floor_count = quality;
   floor_centroid = pixel_y;
 
-  green_count1 = strip1;
-  green_count2 = strip2;
-  green_count3 = strip3;
-  green_count4 = strip4;
-  green_count5 = strip5;
+  green_count1 = pixels_per_strip - strip1;
+  green_count2 = pixels_per_strip - strip2;
+  green_count3 = pixels_per_strip - strip3;
+  green_count4 = pixels_per_strip - strip4;
+  green_count5 = pixels_per_strip - strip5;
     
 
 }
@@ -157,17 +161,17 @@ int findMinIndex(int arr[], int size) {
     return minIndex;
 }
 
-float adjustAngle(float temp_heading) {
-    float adjusted_heading = temp_heading + RadOfDeg(150);
+// float adjustAngle(float temp_heading) {
+//     float adjusted_heading = temp_heading + RadOfDeg(150);
 
-    // Wrap the heading to be within -PI and PI
-    adjusted_heading = fmod(adjusted_heading + M_PI, 2 * M_PI);
-    if (adjusted_heading < 0)
-        adjusted_heading += 2 * M_PI;
-    adjusted_heading -= M_PI;
+//     // Wrap the heading to be within -PI and PI
+//     adjusted_heading = fmod(adjusted_heading + M_PI, 2 * M_PI);
+//     if (adjusted_heading < 0)
+//         adjusted_heading += 2 * M_PI;
+//     adjusted_heading -= M_PI;
 
-    return adjusted_heading;
-}
+//     return adjusted_heading;
+// }
   
 
 
@@ -185,11 +189,11 @@ void orange_avoider_guided_init(void)
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
   AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
   
-  temp_arrray[0] = orange_count1;
-  temp_arrray[1] = orange_count2;
-  temp_arrray[2] = orange_count3;
-  temp_arrray[3] = orange_count4;
-  temp_arrray[4] = orange_count5;
+  temp_arrray[0] = orange_count1 + alpha*green_count1;
+  temp_arrray[1] = orange_count2 + alpha*green_count2;
+  temp_arrray[2] = orange_count3 + alpha*green_count3;
+  temp_arrray[3] = orange_count4 + alpha*green_count4;
+  temp_arrray[4] = orange_count5 + alpha*green_count5;
 
 }
 
@@ -206,9 +210,12 @@ void orange_avoider_guided_periodic(void)
     return;
   }
 
+  u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
+
+
   // compute current color thresholds
-  int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h * 0.5;
-  int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h;
+  int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
+  int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
   float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
 
   VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", new_color_count, color_count_threshold, navigation_state);
@@ -217,9 +224,8 @@ void orange_avoider_guided_periodic(void)
 
   // update our safe confidence using color threshold
 
-  u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
 
-  if(color_count < color_count_threshold){
+  if(new_color_count < color_count_threshold){
     obstacle_free_confidence++;
   } else {
     obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
@@ -230,7 +236,7 @@ void orange_avoider_guided_periodic(void)
 
 
 
-  float speed_sp = fminf(oag_max_speed, 0.2f * obstacle_free_confidence);
+  float speed_sp = fminf(oag_max_speed, 0.35f * obstacle_free_confidence);
 
   
   // VERBOSE_PRINT("orange: %i, %i, %i, %i, %i", orange_count1, orange_count2, orange_count3, orange_count4, orange_count5);
@@ -244,7 +250,7 @@ void orange_avoider_guided_periodic(void)
         temp_heading = stateGetNedToBodyEulers_f()->psi;
 
         navigation_state = OUT_OF_BOUNDS;
-      } else if (obstacle_free_confidence == 0){
+      } else if (new_color_count > color_count_threshold){
         navigation_state = OBSTACLE_FOUND;
       } else {
         guidance_h_set_body_vel(speed_sp, 0);
@@ -253,16 +259,20 @@ void orange_avoider_guided_periodic(void)
       break;
     case OBSTACLE_FOUND:
       // stop
-      guidance_h_set_body_vel(0, 0);
+       guidance_h_set_body_vel(0, 0);
 
       // randomly select new search direction
-      chooseRandomIncrementAvoidance();
+      // chooseRandomIncrementAvoidance();
 
       navigation_state = SEARCH_FOR_SAFE_HEADING;
 
       break;
     case SEARCH_FOR_SAFE_HEADING:
       //guidance_h_set_heading_rate(avoidance_heading_direction * oag_heading_rate);
+
+      guidance_h_set_body_vel(0, 0);
+
+
 
       safe_heading = (findMinIndex(temp_arrray, 5) - 2)* RadOfDeg(30);
 
@@ -271,6 +281,7 @@ void orange_avoider_guided_periodic(void)
 
 
       guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading);
+
 
       navigation_state = SAFE;
       // make sure we have a couple of good readings before declaring the way safe
@@ -284,14 +295,18 @@ void orange_avoider_guided_periodic(void)
       guidance_h_set_body_vel(0, 0);
 
       // start turn back into arena
-      // guidance_h_set_heading_rate(avoidance_heading_direction * RadOfDeg(15));
-      guidance_h_set_heading_rate(RadOfDeg(30));
+      guidance_h_set_heading( stateGetNedToBodyEulers_f()->psi + RadOfDeg(90));
 
-      VERBOSE_PRINT("temp_heading %f, current_heading %f", adjustAngle(temp_heading + RadOfDeg(150)), stateGetNedToBodyEulers_f()->psi);
+      //VERBOSE_PRINT("temp_heading %f", temp_heading);
+      //VERBOSE_PRINT("lower %f, current_heading %f, upper %f ",
+      // adjustAngle(temp_heading+RadOfDeg(180)), stateGetNedToBodyEulers_f()->psi, adjustAngle(temp_heading + RadOfDeg(190)));
 
       
+      // if (adjustAngle((temp_heading + RadOfDeg(160))) < stateGetNedToBodyEulers_f()->psi && stateGetNedToBodyEulers_f()->psi < adjustAngle(temp_heading + RadOfDeg(210))) {
+      //   navigation_state = SAFE;
+      // }
 
-
+      navigation_state = SEARCH_FOR_SAFE_HEADING;
 
       //guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + RadOfDeg(180));
 
