@@ -120,6 +120,13 @@ int32_t safe_heading;
 int32_t temp_arrray[15] = {0};
 
 
+float heading_stored = 0;               // heading stored for search for safe heading [deg]
+float heading_increment = 0.f;          // heading angle increment [deg]
+const int16_t threshold_decrease = 2;   // decrease color count threshold when heading is divisible by 360
+
+// declare out_heading
+float our_heading = 0;
+
 //////////////////
 
 
@@ -288,6 +295,13 @@ void orange_avoider_guided_periodic(void)
   //VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
   // VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
 
+  // Change the color count threshold if we have turned 360 degrees
+  if (heading_increment >= 2*M_PI){
+    color_count_threshold = color_count_threshold/threshold_decrease;
+  }
+
+
+
   // update our safe confidence using color threshold
 
 
@@ -323,12 +337,14 @@ void orange_avoider_guided_periodic(void)
     case SAFE:
       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
         temp_heading = stateGetNedToBodyEulers_f()->psi;
+        heading_stored = temp_heading;
 
         navigation_state = OUT_OF_BOUNDS;
       } else if (new_color_count > color_count_threshold){
         navigation_state = OBSTACLE_FOUND;
       } else {
         guidance_h_set_body_vel(speed_sp, 0);
+        heading_stored = stateGetNedToBodyEulers_f()->psi;
       }
 
       break;
@@ -353,7 +369,19 @@ void orange_avoider_guided_periodic(void)
 
       VERBOSE_PRINT("safe_heading: %i", safe_heading);
 
+      our_heading = stateGetNedToBodyEulers_f()->psi;
+      
+      // Make our heading positive
+      if (our_heading < 0){
+        our_heading += 2*M_PI;
+      }
 
+      if (heading_stored < 0){
+        heading_stored += 2*M_PI;
+      }
+
+      // Find the absolute change in heading
+      heading_increment = our_heading - heading_stored;
 
       guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading);
 
