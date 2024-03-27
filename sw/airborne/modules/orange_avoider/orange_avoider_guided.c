@@ -54,9 +54,9 @@ enum navigation_state_t {
 };
 
 // define settings
-float oag_color_count_frac = 0.18f  * 0.25;       // obstacle detection threshold as a fraction of total of image
+float oag_color_count_frac = 0.18f  * 0.20;       // obstacle detection threshold as a fraction of total of image
 float oag_floor_count_frac = 0.05f * 2;       // floor detection threshold as a fraction of total of image
-float oag_max_speed = 1.f;               // max flight speed [m/s]
+float oag_max_speed = 0.8f;               // max flight speed [m/s]
 float oag_heading_rate = RadOfDeg(30.f);  // heading change setpoint for avoidance [rad/s]
 
 // define and initialise global variables
@@ -76,6 +76,18 @@ int32_t orange_count3 = 0;
 int32_t orange_count4 = 0;
 int32_t orange_count5 = 0;
 
+int32_t orange_count6 = 0;
+int32_t orange_count7 = 0;
+int32_t orange_count8 = 0;
+int32_t orange_count9 = 0;
+int32_t orange_count10 = 0;
+
+int32_t orange_count11 = 0;
+int32_t orange_count12 = 0;
+int32_t orange_count13 = 0;
+int32_t orange_count14 = 0;
+int32_t orange_count15 = 0;
+
 
 int32_t green_count1 = 0;
 int32_t green_count2 = 0;
@@ -83,8 +95,20 @@ int32_t green_count3 = 0;
 int32_t green_count4 = 0;
 int32_t green_count5 = 0;
 
-int32_t pixels_per_strip = (240*520)/5; 
-int32_t alpha = 1.2f;
+int32_t green_count6 = 0;
+int32_t green_count7 = 0;
+int32_t green_count8 = 0;
+int32_t green_count9 = 0;
+int32_t green_count10 = 0;
+
+int32_t green_count11 = 0;
+int32_t green_count12 = 0;
+int32_t green_count13 = 0;
+int32_t green_count14 = 0;
+int32_t green_count15 = 0;
+
+int32_t pixels_per_strip = (240*520)/15; 
+int32_t alpha = 1.f;
 
 
 int32_t temp_heading;
@@ -93,7 +117,7 @@ u_int32_t new_color_count;
 
 int32_t safe_heading;
 
-int32_t temp_arrray[5] = {0};
+int32_t temp_arrray[15] = {0};
 
 
 float heading_stored = 0;               // heading stored for search for safe heading [deg]
@@ -118,6 +142,8 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
                                int16_t __attribute__((unused)) pixel_width, int16_t __attribute__((unused)) pixel_height,
                                int32_t quality,
                                int32_t strip1, int32_t strip2, int32_t strip3, int32_t strip4, int32_t strip5,
+                               int32_t strip6, int32_t strip7, int32_t strip8, int32_t strip9, int32_t strip10,
+                               int32_t strip11, int32_t strip12, int32_t strip13, int32_t strip14, int32_t strip15,
                                int16_t __attribute__((unused)) extra)
 {
   color_count = quality;
@@ -127,6 +153,18 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
   orange_count3 = strip3;
   orange_count4 = strip4;
   orange_count5 = strip5;
+  
+  orange_count6 = strip6;
+  orange_count7 = strip7;
+  orange_count8 = strip8;
+  orange_count9 = strip9;
+  orange_count10 = strip10;
+
+  orange_count11 = strip11;
+  orange_count12 = strip12;
+  orange_count13 = strip13;
+  orange_count14 = strip14;
+  orange_count15 = strip15;
 }
 
 #ifndef FLOOR_VISUAL_DETECTION_ID
@@ -139,6 +177,8 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
                                int16_t __attribute__((unused)) pixel_width, int16_t __attribute__((unused)) pixel_height,
                                int32_t quality,
                                int32_t strip1, int32_t strip2, int32_t strip3, int32_t strip4, int32_t strip5,
+                               int32_t strip6, int32_t strip7, int32_t strip8, int32_t strip9, int32_t strip10,
+                               int32_t strip11, int32_t strip12, int32_t strip13, int32_t strip14, int32_t strip15,
                                int16_t __attribute__((unused)) extra)
 {
   floor_count = quality;
@@ -149,6 +189,20 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
   green_count3 = pixels_per_strip - strip3;
   green_count4 = pixels_per_strip - strip4;
   green_count5 = pixels_per_strip - strip5;
+  
+  green_count6 = pixels_per_strip - strip6;
+  green_count7 = pixels_per_strip - strip7;
+  green_count8 = pixels_per_strip - strip8;
+  green_count9 = pixels_per_strip - strip9;
+  green_count10 = pixels_per_strip - strip10;
+
+  green_count11 = pixels_per_strip - strip11;
+  green_count12 = pixels_per_strip - strip12;
+  green_count13 = pixels_per_strip - strip13;
+  green_count14 = pixels_per_strip - strip14;
+  green_count15 = pixels_per_strip - strip15;
+    
+    
     
 
 }
@@ -202,6 +256,18 @@ void orange_avoider_guided_init(void)
   temp_arrray[3] = orange_count4 + alpha*green_count4;
   temp_arrray[4] = orange_count5 + alpha*green_count5;
 
+  temp_arrray[5] = orange_count1 + alpha*green_count1;
+  temp_arrray[6] = orange_count2 + alpha*green_count2;
+  temp_arrray[7] = orange_count3 + alpha*green_count3;
+  temp_arrray[8] = orange_count4 + alpha*green_count4;
+  temp_arrray[9] = orange_count5 + alpha*green_count5;
+
+  temp_arrray[10] = orange_count1 + alpha*green_count1;
+  temp_arrray[11] = orange_count2 + alpha*green_count2;
+  temp_arrray[12] = orange_count3 + alpha*green_count3;
+  temp_arrray[13] = orange_count4 + alpha*green_count4;
+  temp_arrray[14] = orange_count5 + alpha*green_count5;
+
 }
 
 /*
@@ -217,17 +283,17 @@ void orange_avoider_guided_periodic(void)
     return;
   }
 
-  u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
-
+  // u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
+  u_int32_t new_color_count = orange_count7 + orange_count8 + orange_count9 ;
 
   // compute current color thresholds
   int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
   int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
   float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
 
-  VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", new_color_count, color_count_threshold, navigation_state);
-  VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
-  // VERBOSE_PRINsT("Floor centroid: %f\n", floor_centroid_frac);
+  //VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", new_color_count, color_count_threshold, navigation_state);
+  //VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
+  // VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
 
   // Change the color count threshold if we have turned 360 degrees
   if (heading_increment >= 2*M_PI){
@@ -253,7 +319,16 @@ void orange_avoider_guided_periodic(void)
   float speed_sp = fminf(oag_max_speed, 0.35f * obstacle_free_confidence);
 
   
-  // VERBOSE_PRINT("orange: %i, %i, %i, %i, %i", orange_count1, orange_count2, orange_count3, orange_count4, orange_count5);
+  VERBOSE_PRINT("orange: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
+    orange_count1, orange_count2, orange_count3, orange_count4, orange_count5,
+    orange_count6, orange_count7, orange_count8, orange_count9, orange_count10, 
+    orange_count11, orange_count12, orange_count13, orange_count14, orange_count15);
+
+
+  VERBOSE_PRINT("green: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
+  green_count1, green_count2, green_count3, green_count4, green_count5,
+  green_count6, green_count7, green_count8, green_count9, green_count10, 
+  green_count11, green_count12, green_count13, green_count14, green_count15);
   // VERBOSE_PRINT("green: %i, %i, %i, %i, %i", green_count1, green_count2, green_count3, green_count4, green_count5);
 
   
@@ -290,7 +365,7 @@ void orange_avoider_guided_periodic(void)
 
 
 
-      safe_heading = (findMinIndex(temp_arrray, 5) - 2)* RadOfDeg(30);
+      safe_heading = (findMinIndex(temp_arrray, 15) - 2)* RadOfDeg(10);
 
       VERBOSE_PRINT("safe_heading: %i", safe_heading);
 
@@ -360,11 +435,11 @@ void orange_avoider_guided_periodic(void)
   }
 
 
-  orange_count1 = 0;
-  orange_count2 = 0;
-  orange_count3 = 0;
-  orange_count4 = 0;
-  orange_count5 = 0;
+  // orange_count1 = 0;
+  // orange_count2 = 0;
+  // orange_count3 = 0;
+  // orange_count4 = 0;
+  // orange_count5 = 0;
   return;
 }
 
