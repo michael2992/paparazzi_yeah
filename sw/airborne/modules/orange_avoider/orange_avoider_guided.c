@@ -127,7 +127,9 @@ const int16_t threshold_decrease = 2;   // decrease color count threshold when h
 
 // declare out_heading
 float our_heading = 0;
-
+u_int16_t safe_counter = 0;
+u_int16_t safe_counter_thresehold = 10; // TUNABLE: number of consecutive safe readings before storing heading
+float breakout_heading = 0;
 //////////////////
 
 
@@ -335,7 +337,6 @@ void orange_avoider_guided_periodic(void)
   // green_count11, green_count12, green_count13, green_count14, green_count15);
   // VERBOSE_PRINT("green: %i, %i, %i, %i, %i", green_count1, green_count2, green_count3, green_count4, green_count5);
 
-  
 
   switch (navigation_state){
     case SAFE:
@@ -348,7 +349,12 @@ void orange_avoider_guided_periodic(void)
         navigation_state = OBSTACLE_FOUND;
       } else {
         guidance_h_set_body_vel(speed_sp, 0);
-        heading_stored = stateGetNedToBodyEulers_f()->psi;
+        if (safe_counter < safe_counter_thresehold){
+          safe_counter++;
+        } else {
+          safe_counter = 0;
+          heading_stored = stateGetNedToBodyEulers_f()->psi;
+        }
       }
 
       break;
@@ -387,7 +393,12 @@ void orange_avoider_guided_periodic(void)
       // Find the absolute change in heading
       heading_increment = our_heading - heading_stored;
 
-      guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading);
+      // Breakout heading to keep it continally moving
+      breakout_heading = RadOfDeg(safe_counter);
+      // Print safe counter and heading increment
+      VERBOSE_PRINT("safe_counter: %i, heading_increment: %f", safe_counter, heading_increment);
+
+      guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading + breakout_heading);
 
 
       navigation_state = SAFE;
