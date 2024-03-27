@@ -127,7 +127,7 @@ const int16_t threshold_decrease = 2;   // decrease color count threshold when h
 // declare out_heading
 float our_heading = 0;
 u_int16_t safe_counter = 0;
-u_int16_t safe_counter_thresehold = 10;
+u_int16_t safe_counter_thresehold = 10; // TUNABLE: number of consecutive safe readings before storing heading
 
 //////////////////
 
