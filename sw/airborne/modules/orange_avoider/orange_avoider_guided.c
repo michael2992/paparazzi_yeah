@@ -117,6 +117,7 @@ u_int32_t new_color_count;
 
 int32_t safe_heading;
 
+
 int32_t temp_arrray[15] = {0};
 
 
