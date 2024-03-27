@@ -128,7 +128,7 @@ const int16_t threshold_decrease = 2;   // decrease color count threshold when h
 float our_heading = 0;
 u_int16_t safe_counter = 0;
 u_int16_t safe_counter_thresehold = 10; // TUNABLE: number of consecutive safe readings before storing heading
-
+float breakout_heading = 0;
 //////////////////
 
 
@@ -389,7 +389,12 @@ void orange_avoider_guided_periodic(void)
       // Find the absolute change in heading
       heading_increment = our_heading - heading_stored;
 
-      guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading);
+      // Breakout heading to keep it continally moving
+      breakout_heading = RadOfDeg(safe_counter);
+      // Print safe counter and heading increment
+      VERBOSE_PRINT("safe_counter: %i, heading_increment: %f", safe_counter, heading_increment);
+
+      guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading + breakout_heading);
 
 
       navigation_state = SAFE;
