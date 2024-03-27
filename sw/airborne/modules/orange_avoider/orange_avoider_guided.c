@@ -108,7 +108,7 @@ int32_t green_count14 = 0;
 int32_t green_count15 = 0;
 
 int32_t pixels_per_strip = (240*520)/15; 
-int32_t alpha = 1.f;
+int32_t alpha = 1.4f;
 
 
 int32_t temp_heading;
@@ -250,6 +250,15 @@ void orange_avoider_guided_init(void)
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
   AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
   
+
+
+}
+
+/*
+ * Function that checks it is safe to move forwards, and then sets a forward velocity setpoint or changes the heading
+ */
+void orange_avoider_guided_periodic(void)
+{
   temp_arrray[0] = orange_count1 + alpha*green_count1;
   temp_arrray[1] = orange_count2 + alpha*green_count2;
   temp_arrray[2] = orange_count3 + alpha*green_count3;
@@ -267,14 +276,6 @@ void orange_avoider_guided_init(void)
   temp_arrray[12] = orange_count3 + alpha*green_count3;
   temp_arrray[13] = orange_count4 + alpha*green_count4;
   temp_arrray[14] = orange_count5 + alpha*green_count5;
-
-}
-
-/*
- * Function that checks it is safe to move forwards, and then sets a forward velocity setpoint or changes the heading
- */
-void orange_avoider_guided_periodic(void)
-{
 
   // Only run the mudule if we are in the correct flight mode
   if (guidance_h.mode != GUIDANCE_H_MODE_GUIDED) {
@@ -298,9 +299,11 @@ void orange_avoider_guided_periodic(void)
   // Change the color count threshold if we have turned 360 degrees
   if (heading_increment >= 2*M_PI){
     color_count_threshold = color_count_threshold/threshold_decrease;
+    VERBOSE_PRINT("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   }
 
 
+  VERBOSE_PRINT("state: %u", navigation_state);
 
   // update our safe confidence using color threshold
 
@@ -367,7 +370,7 @@ void orange_avoider_guided_periodic(void)
 
       safe_heading = (findMinIndex(temp_arrray, 15) - 7) * RadOfDeg(10);
 
-      VERBOSE_PRINT("safe_heading: %i", (findMinIndex(temp_arrray, 15) - 7) * RadOfDeg(10));
+      VERBOSE_PRINT("safe_heading: %f", (findMinIndex(temp_arrray, 15) - 7) * RadOfDeg(10));
 
       our_heading = stateGetNedToBodyEulers_f()->psi;
       
@@ -398,7 +401,7 @@ void orange_avoider_guided_periodic(void)
       guidance_h_set_body_vel(0, 0);
 
       // start turn back into arena
-      guidance_h_set_heading( stateGetNedToBodyEulers_f()->psi + RadOfDeg(90));
+      guidance_h_set_heading( stateGetNedToBodyEulers_f()->psi + avoidance_heading_direction*RadOfDeg(90));
 
       //VERBOSE_PRINT("temp_heading %f", temp_heading);
       //VERBOSE_PRINT("lower %f, current_heading %f, upper %f ",
@@ -448,14 +451,13 @@ void orange_avoider_guided_periodic(void)
  */
 uint8_t chooseRandomIncrementAvoidance(void)
 {
-  avoidance_heading_direction = 1.f;
-  // // Randomly choose CW or CCW avoiding direction
-  // if (rand() % 2 == 0) {
-  //   avoidance_heading_direction = 1.f;
-  //   // VERBOSE_PRINT("Set avoidance increment to: %f\n", avoidance_heading_direction * oag_heading_rate);
-  // } else {
-  //   avoidance_heading_direction = -1.f;
-  //   // VERBOSE_PRINT("Set avoidance increment to: %f\n", avoidance_heading_direction * oag_heading_rate);
-  // }
+  // Randomly choose CW or CCW avoiding direction
+  if (rand() % 2 == 0) {
+    avoidance_heading_direction = 1.f;
+    // VERBOSE_PRINT("Set avoidance increment to: %f\n", avoidance_heading_direction * oag_heading_rate);
+  } else {
+    avoidance_heading_direction = -1.f;
+    // VERBOSE_PRINT("Set avoidance increment to: %f\n", avoidance_heading_direction * oag_heading_rate);
+  }
   return false;
 }
