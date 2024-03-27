@@ -284,7 +284,7 @@ void orange_avoider_guided_periodic(void)
   }
 
   // u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
-  u_int32_t new_color_count = orange_count7 + orange_count8 + orange_count9 ;
+  u_int32_t new_color_count = orange_count6 + orange_count7 + orange_count8 + orange_count9 + orange_count10;
 
   // compute current color thresholds
   int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
@@ -319,16 +319,16 @@ void orange_avoider_guided_periodic(void)
   float speed_sp = fminf(oag_max_speed, 0.35f * obstacle_free_confidence);
 
   
-  VERBOSE_PRINT("orange: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
-    orange_count1, orange_count2, orange_count3, orange_count4, orange_count5,
-    orange_count6, orange_count7, orange_count8, orange_count9, orange_count10, 
-    orange_count11, orange_count12, orange_count13, orange_count14, orange_count15);
+  // VERBOSE_PRINT("orange: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
+  //   orange_count1, orange_count2, orange_count3, orange_count4, orange_count5,
+  //   orange_count6, orange_count7, orange_count8, orange_count9, orange_count10, 
+  //   orange_count11, orange_count12, orange_count13, orange_count14, orange_count15);
 
 
-  VERBOSE_PRINT("green: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
-  green_count1, green_count2, green_count3, green_count4, green_count5,
-  green_count6, green_count7, green_count8, green_count9, green_count10, 
-  green_count11, green_count12, green_count13, green_count14, green_count15);
+  // VERBOSE_PRINT("green: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
+  // green_count1, green_count2, green_count3, green_count4, green_count5,
+  // green_count6, green_count7, green_count8, green_count9, green_count10, 
+  // green_count11, green_count12, green_count13, green_count14, green_count15);
   // VERBOSE_PRINT("green: %i, %i, %i, %i, %i", green_count1, green_count2, green_count3, green_count4, green_count5);
 
   
@@ -365,9 +365,9 @@ void orange_avoider_guided_periodic(void)
 
 
 
-      safe_heading = (findMinIndex(temp_arrray, 15) - 7)* RadOfDeg(10);
+      safe_heading = (findMinIndex(temp_arrray, 15) - 7) * RadOfDeg(10);
 
-      VERBOSE_PRINT("safe_heading: %i", safe_heading);
+      VERBOSE_PRINT("safe_heading: %i", (findMinIndex(temp_arrray, 15) - 7) * RadOfDeg(10));
 
       our_heading = stateGetNedToBodyEulers_f()->psi;
       
