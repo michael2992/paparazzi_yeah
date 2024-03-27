@@ -349,7 +349,7 @@ void orange_avoider_guided_periodic(void)
 
 
 
-      safe_heading = (findMinIndex(temp_arrray, 15) - 2)* RadOfDeg(10);
+      safe_heading = (findMinIndex(temp_arrray, 15) - 7)* RadOfDeg(10);
 
       VERBOSE_PRINT("safe_heading: %i", safe_heading);
 
