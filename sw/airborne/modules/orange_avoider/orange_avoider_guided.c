@@ -50,7 +50,8 @@ enum navigation_state_t {
   OBSTACLE_FOUND,
   SEARCH_FOR_SAFE_HEADING,
   OUT_OF_BOUNDS,
-  REENTER_ARENA
+  REENTER_ARENA, 
+  ADJUST_HEADING
 };
 
 // define settings
@@ -130,6 +131,11 @@ float our_heading = 0;
 u_int16_t safe_counter = 0;
 u_int16_t safe_counter_thresehold = 10; // TUNABLE: number of consecutive safe readings before storing heading
 float breakout_heading = 0;
+
+
+int counter = 0;
+int heading_counter= 0;
+int stuck_counter = 0;
 //////////////////
 
 
@@ -204,9 +210,6 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
   green_count13 = pixels_per_strip - strip13;
   green_count14 = pixels_per_strip - strip14;
   green_count15 = pixels_per_strip - strip15;
-    
-    
-    
 
 }
 
@@ -290,6 +293,13 @@ void orange_avoider_guided_periodic(void)
   // u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
   u_int32_t new_color_count = orange_count6 + orange_count7 + orange_count8 + orange_count9 + orange_count10;
 
+  u_int32_t heading_array[11] = {0};
+
+  for (int i=0; i <11; i++){
+    heading_array[i] = temp_arrray[i] + temp_arrray[i+1] + temp_arrray[i + 2] + temp_arrray[i + 3] + temp_arrray[i + 4];
+  }
+
+
   // compute current color thresholds
   int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
   int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
@@ -302,7 +312,6 @@ void orange_avoider_guided_periodic(void)
   // Change the color count threshold if we have turned 360 degrees
   if (heading_increment >= 2*M_PI){
     color_count_threshold = color_count_threshold/threshold_decrease;
-    VERBOSE_PRINT("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   }
 
 
@@ -322,7 +331,7 @@ void orange_avoider_guided_periodic(void)
 
 
 
-  float speed_sp = fminf(oag_max_speed, 0.35f * obstacle_free_confidence);
+  float speed_sp = fminf(oag_max_speed, 0.4f * obstacle_free_confidence);
 
   
   // VERBOSE_PRINT("orange: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
@@ -340,6 +349,10 @@ void orange_avoider_guided_periodic(void)
 
   switch (navigation_state){
     case SAFE:
+      if (heading_counter > 10){
+        heading_counter = 0;
+        navigation_state = ADJUST_HEADING;
+      }
       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
         temp_heading = stateGetNedToBodyEulers_f()->psi;
         heading_stored = temp_heading;
@@ -355,7 +368,10 @@ void orange_avoider_guided_periodic(void)
           safe_counter = 0;
           heading_stored = stateGetNedToBodyEulers_f()->psi;
         }
+
+        heading_counter++;
       }
+
 
       break;
     case OBSTACLE_FOUND:
@@ -373,15 +389,14 @@ void orange_avoider_guided_periodic(void)
 
       guidance_h_set_body_vel(0, 0);
 
-
-
-      safe_heading = (findMinIndex(temp_arrray, 15) - 7) * RadOfDeg(10);
-
-      VERBOSE_PRINT("safe_heading: %f", (findMinIndex(temp_arrray, 15) - 7) * RadOfDeg(10));
-
-      our_heading = stateGetNedToBodyEulers_f()->psi;
       
-      // Make our heading positive
+      heading_array[4] = heading_array[4] + 15000;
+      heading_array[5] = heading_array[5] + 15000;
+      heading_array[6] = heading_array[6] + 15000;
+
+      safe_heading = (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10);
+
+      our_heading = stateGetNedToBodyEulers_f()->psi;      
       if (our_heading < 0){
         our_heading += 2*M_PI;
       }
@@ -390,18 +405,23 @@ void orange_avoider_guided_periodic(void)
         heading_stored += 2*M_PI;
       }
 
-      // Find the absolute change in heading
       heading_increment = our_heading - heading_stored;
-
-      // Breakout heading to keep it continally moving
       breakout_heading = RadOfDeg(safe_counter);
-      // Print safe counter and heading increment
-      VERBOSE_PRINT("safe_counter: %i, heading_increment: %f", safe_counter, heading_increment);
 
+      VERBOSE_PRINT("safe_heading: %f", (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10));
+      VERBOSE_PRINT("safe_counter: %i, heading_increment: %f", safe_counter, heading_increment);
       guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading + breakout_heading);
 
 
-      navigation_state = SAFE;
+
+      if (stuck_counter>5){
+        stuck_counter= 0;
+        guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + avoidance_heading_direction* RadOfDeg(45));
+        navigation_state = SAFE;
+      }
+
+      stuck_counter++;
+      
       // make sure we have a couple of good readings before declaring the way safe
       // if (obstacle_free_confidence >= 2){
       //   guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi);
@@ -413,7 +433,18 @@ void orange_avoider_guided_periodic(void)
       guidance_h_set_body_vel(0, 0);
 
       // start turn back into arena
-      guidance_h_set_heading( stateGetNedToBodyEulers_f()->psi + avoidance_heading_direction*RadOfDeg(90));
+      // guidance_h_set_heading( stateGetNedToBodyEulers_f()->psi + avoidance_heading_direction*RadOfDeg(90));
+      guidance_h_set_heading_rate(avoidance_heading_direction* RadOfDeg(45));
+
+      if (counter > 5){
+        counter = 0;
+        guidance_h_set_heading_rate(0);
+        navigation_state = SAFE;
+      }
+
+      counter++;
+
+      
 
       //VERBOSE_PRINT("temp_heading %f", temp_heading);
       //VERBOSE_PRINT("lower %f, current_heading %f, upper %f ",
@@ -424,7 +455,7 @@ void orange_avoider_guided_periodic(void)
       //   navigation_state = SAFE;
       // }
 
-      navigation_state = SEARCH_FOR_SAFE_HEADING;
+      // navigation_state = SEARCH_FOR_SAFE_HEADING;
 
       //guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + RadOfDeg(180));
 
@@ -445,6 +476,16 @@ void orange_avoider_guided_periodic(void)
       // }
       navigation_state = SAFE;
       break;
+
+    case ADJUST_HEADING:
+      safe_heading = (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10);
+      guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading + breakout_heading);
+
+      VERBOSE_PRINT("adjusted heading: %f", (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10));
+      navigation_state = SAFE;
+
+      break; 
+
     default:
       break;
   }
