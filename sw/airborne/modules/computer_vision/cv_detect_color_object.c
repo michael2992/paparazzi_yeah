@@ -328,6 +328,12 @@ void color_object_detector_init(void)
  * @param draw - whether or not to draw on image
  * @return number of pixels of image within the filter bounds.
  */
+
+
+// The function has been extended to also divide the image into 15 vertical strips
+// and count the pixels in each strip that are within the filter parameter values. 
+// The function now also returns these counts as unsigned integers.
+
 uint32_t find_object_centroid(struct image_t *img, int32_t* p_xc, int32_t* p_yc, bool draw,
                               uint8_t lum_min, uint8_t lum_max,
                               uint8_t cb_min, uint8_t cb_max,
@@ -410,7 +416,7 @@ uint32_t find_object_centroid(struct image_t *img, int32_t* p_xc, int32_t* p_yc,
 
 
 
-
+// The ABI messages were also modified to send back the pixel counts to the orange_avoider_guided.c file
 void color_object_detector_periodic(void)
 {
   static struct color_object_t local_filters[2];

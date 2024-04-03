@@ -50,93 +50,51 @@ enum navigation_state_t {
   OBSTACLE_FOUND,
   SEARCH_FOR_SAFE_HEADING,
   OUT_OF_BOUNDS,
-  REENTER_ARENA, 
   ADJUST_HEADING
 };
 
-// define settings
-float oag_color_count_frac = 0.18f  * 0.20;       // obstacle detection threshold as a fraction of total of image
-float oag_floor_count_frac = 0.05f * 2;       // floor detection threshold as a fraction of total of image
-float oag_max_speed = 0.8f;               // max flight speed [m/s]
-float oag_heading_rate = RadOfDeg(30.f);  // heading change setpoint for avoidance [rad/s]
+// Settings
+float oag_color_count_frac = 0.18f * 0.20;  // Obstacle detection threshold as a fraction of total of image
+float oag_floor_count_frac = 0.05f * 2;     // Floor detection threshold as a fraction of total of image
+float oag_max_speed = 0.8f;                 // Max flight speed [m/s]
+float oag_heading_rate = RadOfDeg(30.f);    // Heading change setpoint for avoidance [rad/s]
 
-// define and initialise global variables
-enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;   // current state in state machine
-int32_t color_count = 0;                // orange color count from color filter for obstacle detection
-int32_t floor_count = 0;                // green color count from color filter for floor detection
-int32_t floor_centroid = 0;             // floor detector centroid in y direction (along the horizon)
-float avoidance_heading_direction = 0;  // heading change direction for avoidance [rad/s]
-int16_t obstacle_free_confidence = 0;   // a measure of how certain we are that the way ahead if safe.
+// Global variables
+enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;
+int32_t color_count = 0;
+int32_t floor_count = 0;
+int32_t floor_centroid = 0;
+float avoidance_heading_direction = 0;
+int16_t obstacle_free_confidence = 0;
+const int16_t max_trajectory_confidence = 5;
 
-const int16_t max_trajectory_confidence = 5;  // number of consecutive negative object detections to be sure we are obstacle free
-
-//////////////////
-int32_t orange_count1 = 0;
-int32_t orange_count2 = 0;
-int32_t orange_count3 = 0;
-int32_t orange_count4 = 0;
-int32_t orange_count5 = 0;
-
-int32_t orange_count6 = 0;
-int32_t orange_count7 = 0;
-int32_t orange_count8 = 0;
-int32_t orange_count9 = 0;
-int32_t orange_count10 = 0;
-
-int32_t orange_count11 = 0;
-int32_t orange_count12 = 0;
-int32_t orange_count13 = 0;
-int32_t orange_count14 = 0;
-int32_t orange_count15 = 0;
-
-
-int32_t green_count1 = 0;
-int32_t green_count2 = 0;
-int32_t green_count3 = 0;
-int32_t green_count4 = 0;
-int32_t green_count5 = 0;
-
-int32_t green_count6 = 0;
-int32_t green_count7 = 0;
-int32_t green_count8 = 0;
-int32_t green_count9 = 0;
-int32_t green_count10 = 0;
-
-int32_t green_count11 = 0;
-int32_t green_count12 = 0;
-int32_t green_count13 = 0;
-int32_t green_count14 = 0;
-int32_t green_count15 = 0;
-
+// Additional counts for further analysis
+int32_t orange_count[15] = {0};
+int32_t green_count[15] = {0};
 int32_t pixels_per_strip = (240*520)/15; 
-int32_t alpha = 1.4f;
-
-
+float alpha = 1.4f;
 int32_t temp_heading;
-
 u_int32_t new_color_count;
-
 int32_t safe_heading;
-
-
 int32_t temp_arrray[15] = {0};
-
-
 float heading_stored = 0;               // heading stored for search for safe heading [deg]
 float heading_increment = 0.f;          // heading angle increment [deg]
 const int16_t threshold_decrease = 2;   // decrease color count threshold when heading is divisible by 360
 
-// declare out_heading
+// Out heading variables
 float our_heading = 0;
 u_int16_t safe_counter = 0;
 u_int16_t safe_counter_thresehold = 10; // TUNABLE: number of consecutive safe readings before storing heading
 float breakout_heading = 0;
 
-
+// Counter variables for navigation states
 int counter = 0;
-int heading_counter= 0;
+int heading_counter = 0;
 int stuck_counter = 0;
-//////////////////
+
+// Function prototypes
+uint8_t chooseRandomIncrementAvoidance(void);
+int findMinIndex(int arr[], int size);
 
 
 
@@ -156,24 +114,25 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
                                int16_t __attribute__((unused)) extra)
 {
   color_count = quality;
-
-  orange_count1 = strip1;
-  orange_count2 = strip2;
-  orange_count3 = strip3;
-  orange_count4 = strip4;
-  orange_count5 = strip5;
   
-  orange_count6 = strip6;
-  orange_count7 = strip7;
-  orange_count8 = strip8;
-  orange_count9 = strip9;
-  orange_count10 = strip10;
+  // A for loop would have been more efficient, but we receive integers from the filter callback, and we cannot assume they are stored sequentially
+  orange_count[0] = strip1;
+  orange_count[1] = strip2;
+  orange_count[2] = strip3;
+  orange_count[3] = strip4;
+  orange_count[4] = strip5;
+  
+  orange_count[5] = strip6;
+  orange_count[6] = strip7;
+  orange_count[7] = strip8;
+  orange_count[8] = strip9;
+  orange_count[9] = strip10;
 
-  orange_count11 = strip11;
-  orange_count12 = strip12;
-  orange_count13 = strip13;
-  orange_count14 = strip14;
-  orange_count15 = strip15;
+  orange_count[10]= strip11;
+  orange_count[11]= strip12;
+  orange_count[12] = strip13;
+  orange_count[13] = strip14;
+  orange_count[14]= strip15;
 }
 
 #ifndef FLOOR_VISUAL_DETECTION_ID
@@ -193,54 +152,47 @@ static void floor_detection_cb(uint8_t __attribute__((unused)) sender_id,
   floor_count = quality;
   floor_centroid = pixel_y;
 
-  green_count1 = pixels_per_strip - strip1;
-  green_count2 = pixels_per_strip - strip2;
-  green_count3 = pixels_per_strip - strip3;
-  green_count4 = pixels_per_strip - strip4;
-  green_count5 = pixels_per_strip - strip5;
-  
-  green_count6 = pixels_per_strip - strip6;
-  green_count7 = pixels_per_strip - strip7;
-  green_count8 = pixels_per_strip - strip8;
-  green_count9 = pixels_per_strip - strip9;
-  green_count10 = pixels_per_strip - strip10;
 
-  green_count11 = pixels_per_strip - strip11;
-  green_count12 = pixels_per_strip - strip12;
-  green_count13 = pixels_per_strip - strip13;
-  green_count14 = pixels_per_strip - strip14;
-  green_count15 = pixels_per_strip - strip15;
+  // A for loop would have been more efficient, but we receive integers from the filter callback, and we cannot assume they are stored sequentially
+  green_count[0] = pixels_per_strip - strip1;
+  green_count[1] = pixels_per_strip - strip2;
+  green_count[2] = pixels_per_strip - strip3;
+  green_count[3] = pixels_per_strip - strip4;
+  green_count[4] = pixels_per_strip - strip5;
+  
+  green_count[5] = pixels_per_strip - strip6;
+  green_count[6] = pixels_per_strip - strip7;
+  green_count[7] = pixels_per_strip - strip8;
+  green_count[8] = pixels_per_strip - strip9;
+  green_count[9]= pixels_per_strip - strip10;
+
+  green_count[10] = pixels_per_strip - strip11;
+  green_count[11] = pixels_per_strip - strip12;
+  green_count[12] = pixels_per_strip - strip13;
+  green_count[13]= pixels_per_strip - strip14;
+  green_count[14]= pixels_per_strip - strip15;
 
 }
 
 int findMinIndex(int arr[], int size);
 
-
+// Function to find the index of the minimum element in an array.
 int findMinIndex(int arr[], int size) {
-    if (size <= 0) return -1; // Return an invalid index if the array is empty
+    // Check if the array is empty or has invalid size, return -1 as error indicator.
+    if (size <= 0) return -1;
 
-    int minIndex = 0; // Start with the first element as the minimum
+    // Initialize minIndex with the index of the first element.
+    int minIndex = 0;
+    // Loop through the array starting from the second element.
     for (int i = 1; i < size; i++) {
+        // If a smaller element is found, update minIndex.
         if (arr[i] < arr[minIndex]) {
-            minIndex = i; // Update the index of the new minimum
+            minIndex = i;
         }
     }
+    // Return the index of the smallest element.
     return minIndex;
 }
-
-// float adjustAngle(float temp_heading) {
-//     float adjusted_heading = temp_heading + RadOfDeg(150);
-
-//     // Wrap the heading to be within -PI and PI
-//     adjusted_heading = fmod(adjusted_heading + M_PI, 2 * M_PI);
-//     if (adjusted_heading < 0)
-//         adjusted_heading += 2 * M_PI;
-//     adjusted_heading -= M_PI;
-
-//     return adjusted_heading;
-// }
-  
-
 
 
 /*
@@ -250,13 +202,12 @@ void orange_avoider_guided_init(void)
 {
   // Initialise random values
   srand(time(NULL));
+  // Randomly sets the avoidance_heading_direction to 1 or -1 (right or left)
   chooseRandomIncrementAvoidance();
 
   // bind our colorfilter callbacks to receive the color filter outputs
-  AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
-  AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb);
-  
-
+  AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb); // Orange Filter
+  AbiBindMsgVISUAL_DETECTION(FLOOR_VISUAL_DETECTION_ID, &floor_detection_ev, floor_detection_cb); // Floor/Green Filter
 
 }
 
@@ -265,23 +216,10 @@ void orange_avoider_guided_init(void)
  */
 void orange_avoider_guided_periodic(void)
 {
-  temp_arrray[0] = orange_count1 + alpha*green_count1;
-  temp_arrray[1] = orange_count2 + alpha*green_count2;
-  temp_arrray[2] = orange_count3 + alpha*green_count3;
-  temp_arrray[3] = orange_count4 + alpha*green_count4;
-  temp_arrray[4] = orange_count5 + alpha*green_count5;
-
-  temp_arrray[5] = orange_count1 + alpha*green_count1;
-  temp_arrray[6] = orange_count2 + alpha*green_count2;
-  temp_arrray[7] = orange_count3 + alpha*green_count3;
-  temp_arrray[8] = orange_count4 + alpha*green_count4;
-  temp_arrray[9] = orange_count5 + alpha*green_count5;
-
-  temp_arrray[10] = orange_count1 + alpha*green_count1;
-  temp_arrray[11] = orange_count2 + alpha*green_count2;
-  temp_arrray[12] = orange_count3 + alpha*green_count3;
-  temp_arrray[13] = orange_count4 + alpha*green_count4;
-  temp_arrray[14] = orange_count5 + alpha*green_count5;
+  // Calculates Cost for each strip and stores it in the temp_array
+  for (int i = 0; i < 15; i++) {
+    temp_arrray[i] = orange_count[i] + alpha * green_count[i];
+  } 
 
   // Only run the mudule if we are in the correct flight mode
   if (guidance_h.mode != GUIDANCE_H_MODE_GUIDED) {
@@ -290,112 +228,96 @@ void orange_avoider_guided_periodic(void)
     return;
   }
 
-  // u_int32_t new_color_count = orange_count2 + orange_count3 + orange_count4;
-  u_int32_t new_color_count = orange_count6 + orange_count7 + orange_count8 + orange_count9 + orange_count10;
-
-  u_int32_t heading_array[11] = {0};
-
-  for (int i=0; i <11; i++){
-    heading_array[i] = temp_arrray[i] + temp_arrray[i+1] + temp_arrray[i + 2] + temp_arrray[i + 3] + temp_arrray[i + 4];
+  // Summing the pixels of the center 5 strips as this allows the drone to determine whether it is safe to move forward
+  u_int32_t new_color_count = 0;
+  for (int i = 5; i <= 9; i++) { 
+      new_color_count += orange_count[i];
   }
 
+  // Prepare heading_array with summed pixel data across adjacent groups of 5 strips
+  u_int32_t heading_array[11] = {0};
+  for (int i = 0; i < 11; i++) {
+      for (int j = 0; j < 5; j++) {
+          heading_array[i] += temp_arrray[i + j];
+      }
+  }
 
-  // compute current color thresholds
+  // Compute current color thresholds
   int32_t color_count_threshold = oag_color_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
   int32_t floor_count_threshold = oag_floor_count_frac * front_camera.output_size.w * front_camera.output_size.h ;
   float floor_centroid_frac = floor_centroid / (float)front_camera.output_size.h / 2.f;
-
-  //VERBOSE_PRINT("Color_count: %d  threshold: %d state: %d \n", new_color_count, color_count_threshold, navigation_state);
-  //VERBOSE_PRINT("Floor count: %d, threshold: %d\n", floor_count, floor_count_threshold);
-  // VERBOSE_PRINT("Floor centroid: %f\n", floor_centroid_frac);
 
   // Change the color count threshold if we have turned 360 degrees
   if (heading_increment >= 2*M_PI){
     color_count_threshold = color_count_threshold/threshold_decrease;
   }
 
-
-  VERBOSE_PRINT("state: %u", navigation_state);
-
   // update our safe confidence using color threshold
-
-
   if(new_color_count < color_count_threshold){
-    obstacle_free_confidence++;
+      obstacle_free_confidence++;
   } else {
-    obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
+      obstacle_free_confidence -= 2;  // be more cautious with positive obstacle detections
   }
 
   // bound obstacle_free_confidence
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
 
-
-
+  // Set the speed based on obstacle confidence
   float speed_sp = fminf(oag_max_speed, 0.4f * obstacle_free_confidence);
 
-  
-  // VERBOSE_PRINT("orange: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
-  //   orange_count1, orange_count2, orange_count3, orange_count4, orange_count5,
-  //   orange_count6, orange_count7, orange_count8, orange_count9, orange_count10, 
-  //   orange_count11, orange_count12, orange_count13, orange_count14, orange_count15);
-
-
-  // VERBOSE_PRINT("green: %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i, %i",
-  // green_count1, green_count2, green_count3, green_count4, green_count5,
-  // green_count6, green_count7, green_count8, green_count9, green_count10, 
-  // green_count11, green_count12, green_count13, green_count14, green_count15);
-  // VERBOSE_PRINT("green: %i, %i, %i, %i, %i", green_count1, green_count2, green_count3, green_count4, green_count5);
-
-
+  // The switch expression used to control the transition between the navigation states the drone has
   switch (navigation_state){
+    // Navigation state SAFE, indicating it is safe to move forward
     case SAFE:
+
+      // Check whether the drone has been in the safe state for more than 10 iterations, if so, go into adjust heading mode
       if (heading_counter > 10){
-        heading_counter = 0;
-        navigation_state = ADJUST_HEADING;
+          heading_counter = 0;
+          navigation_state = ADJUST_HEADING;
       }
+      
+      // Check whether enough of the floor is still visible to determine whether it is still within bounds, or not in front of an obstacle
       if (floor_count < floor_count_threshold || fabsf(floor_centroid_frac) > 0.12){
-        temp_heading = stateGetNedToBodyEulers_f()->psi;
-        heading_stored = temp_heading;
-
-        navigation_state = OUT_OF_BOUNDS;
+          temp_heading = stateGetNedToBodyEulers_f()->psi;
+          heading_stored = temp_heading;
+          navigation_state = OUT_OF_BOUNDS;
       } else if (new_color_count > color_count_threshold){
-        navigation_state = OBSTACLE_FOUND;
+          navigation_state = OBSTACLE_FOUND;
+
       } else {
-        guidance_h_set_body_vel(speed_sp, 0);
-        if (safe_counter < safe_counter_thresehold){
-          safe_counter++;
-        } else {
-          safe_counter = 0;
-          heading_stored = stateGetNedToBodyEulers_f()->psi;
-        }
+          guidance_h_set_body_vel(speed_sp, 0);
+          if (safe_counter < safe_counter_thresehold){
+              safe_counter++;
+          } else {
+              safe_counter = 0;
+              heading_stored = stateGetNedToBodyEulers_f()->psi;
+          }
 
-        heading_counter++;
+          heading_counter++;
       }
-
-
       break;
+
     case OBSTACLE_FOUND:
-      // stop
-       guidance_h_set_body_vel(0, 0);
-
-      // randomly select new search direction
-      // chooseRandomIncrementAvoidance();
-
+      // Stop the drone immediately
+      guidance_h_set_body_vel(0, 0);
       navigation_state = SEARCH_FOR_SAFE_HEADING;
 
       break;
-    case SEARCH_FOR_SAFE_HEADING:
-      //guidance_h_set_heading_rate(avoidance_heading_direction * oag_heading_rate);
 
+    case SEARCH_FOR_SAFE_HEADING:
+      // Stop the drone immediately
       guidance_h_set_body_vel(0, 0);
 
-      
+
+      // Adding very high constant to ensure the drone does not choose these forward directions
       heading_array[4] = heading_array[4] + 15000;
       heading_array[5] = heading_array[5] + 15000;
       heading_array[6] = heading_array[6] + 15000;
 
+      // Calculate new heading by finding strip with minimum cost
       safe_heading = (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10);
 
+      // Checks to ensure drone turns properly
       our_heading = stateGetNedToBodyEulers_f()->psi;      
       if (our_heading < 0){
         our_heading += 2*M_PI;
@@ -405,15 +327,13 @@ void orange_avoider_guided_periodic(void)
         heading_stored += 2*M_PI;
       }
 
+      // Set the drone heading to calculated heading with no obstaccles
       heading_increment = our_heading - heading_stored;
       breakout_heading = RadOfDeg(safe_counter);
-
-      VERBOSE_PRINT("safe_heading: %f", (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10));
-      VERBOSE_PRINT("safe_counter: %i, heading_increment: %f", safe_counter, heading_increment);
       guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading + breakout_heading);
 
 
-
+      // Check to prevent drone getting stuck in the search for safe heading mode
       if (stuck_counter>5){
         stuck_counter= 0;
         guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + avoidance_heading_direction* RadOfDeg(45));
@@ -421,19 +341,13 @@ void orange_avoider_guided_periodic(void)
       }
 
       stuck_counter++;
-      
-      // make sure we have a couple of good readings before declaring the way safe
-      // if (obstacle_free_confidence >= 2){
-      //   guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi);
-      //   navigation_state = SAFE;
-      // }
       break;
+
     case OUT_OF_BOUNDS:
-      // stop
+      // Stop the drone immediately
       guidance_h_set_body_vel(0, 0);
 
-      // start turn back into arena
-      // guidance_h_set_heading( stateGetNedToBodyEulers_f()->psi + avoidance_heading_direction*RadOfDeg(90));
+      // Turn the drone for 5 iterations to direct it back into the CyberZoo
       guidance_h_set_heading_rate(avoidance_heading_direction* RadOfDeg(45));
 
       if (counter > 5){
@@ -443,59 +357,19 @@ void orange_avoider_guided_periodic(void)
       }
 
       counter++;
-
-      
-
-      //VERBOSE_PRINT("temp_heading %f", temp_heading);
-      //VERBOSE_PRINT("lower %f, current_heading %f, upper %f ",
-      // adjustAngle(temp_heading+RadOfDeg(180)), stateGetNedToBodyEulers_f()->psi, adjustAngle(temp_heading + RadOfDeg(190)));
-
-      
-      // if (adjustAngle((temp_heading + RadOfDeg(160))) < stateGetNedToBodyEulers_f()->psi && stateGetNedToBodyEulers_f()->psi < adjustAngle(temp_heading + RadOfDeg(210))) {
-      //   navigation_state = SAFE;
-      // }
-
-      // navigation_state = SEARCH_FOR_SAFE_HEADING;
-
-      //guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + RadOfDeg(180));
-
-      
-
-      break;
-    case REENTER_ARENA:
-      // force floor center to opposite side of turn to head back into arena
-      // if (floor_count >= floor_count_threshold && avoidance_heading_direction * floor_centroid_frac >= 0.f){
-      //   // return to heading mode
-      //   guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi);
-
-      //   // reset safe counter
-      //   obstacle_free_confidence = 0;
-
-      //   // ensure direction is safe before continuing
-      //   navigation_state = SAFE;
-      // }
-      navigation_state = SAFE;
       break;
 
     case ADJUST_HEADING:
+      // New heading is calculated by finding strip with minimum cost, without reducing speed
       safe_heading = (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10);
       guidance_h_set_heading(stateGetNedToBodyEulers_f()->psi + safe_heading + breakout_heading);
-
-      VERBOSE_PRINT("adjusted heading: %f", (findMinIndex(heading_array, 11) - 5) * RadOfDeg(10));
       navigation_state = SAFE;
-
       break; 
 
     default:
       break;
   }
-
-
-  // orange_count1 = 0;
-  // orange_count2 = 0;
-  // orange_count3 = 0;
-  // orange_count4 = 0;
-  // orange_count5 = 0;
+  
   return;
 }
 
@@ -506,11 +380,9 @@ uint8_t chooseRandomIncrementAvoidance(void)
 {
   // Randomly choose CW or CCW avoiding direction
   if (rand() % 2 == 0) {
-    avoidance_heading_direction = 1.f;
-    // VERBOSE_PRINT("Set avoidance increment to: %f\n", avoidance_heading_direction * oag_heading_rate);
+      avoidance_heading_direction = 1.f;
   } else {
-    avoidance_heading_direction = -1.f;
-    // VERBOSE_PRINT("Set avoidance increment to: %f\n", avoidance_heading_direction * oag_heading_rate);
+      avoidance_heading_direction = -1.f;
   }
   return false;
 }
